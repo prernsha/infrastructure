@@ -32,24 +32,31 @@ We will create a stack as specified in the infrastructure template file _`networ
 - __`ParameterValue`__ : Provide any values for **vpcCidr**, **subnetCidr**, and **vpcName**.
 
 #### Create Stack from template #### 
-- Execute below command to [create-stack](https://docs.aws.amazon.com/cli/latest/reference/cloudformation/create-stack.html)
-```
-aws cloudformation create-stack \
-  --stack-name testStack \
-  --region us-east-1 \
-  --parameters ParameterKey=vpcCidr,ParameterValue=10.0.0.0/16 \
-   ParameterKey=subnetCidr,ParameterValue="10.0.0.0/18\,10.0.64.0/18\,10.0.128.0/18" \
-   ParameterKey=vpcName,ParameterValue=testName \
-   --template-body file://networking.json 
-```
-- Execute below command to describe the stack
-```
-aws cloudformation describe-stack --stack-name testStack
-```
-- Execute below command to delete the stack
-```
-aws cloudformation delete-stack --stack-name testStack
-```
+1. Execute commands one by one on terminal following below steps
+   - Execute below command to [create-stack](https://docs.aws.amazon.com/cli/latest/reference/cloudformation/create-stack.html)
+   ```
+   aws cloudformation create-stack \
+   --stack-name testStack \
+   --region us-east-1 \
+   --parameters ParameterKey=vpcCidr,ParameterValue=10.0.0.0/16 \
+      ParameterKey=subnetCidr,ParameterValue="10.0.0.0/18\,10.0.64.0/18\,10.0.128.0/18" \
+      ParameterKey=vpcName,ParameterValue=testName \
+      --template-body file://networking.json 
+   ```
+   - Execute below command to describe the stack
+   ```
+   aws cloudformation describe-stack --stack-name testStack
+   ```
+   - Execute below command to delete the stack
+   ```
+   aws cloudformation delete-stack --stack-name testStack
+   ```
+
+2. Execute **`createStack.sh`** providing the _profile, operation type, stack name, and aws region._
+
+   ```
+    sh stackOp.sh  
+   ```
 #### Conflict ####
 Error could not find login credentials. This is because we have no deafault profile set. Two ways we can avoid this error:
 
