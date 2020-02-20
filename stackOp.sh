@@ -1,4 +1,7 @@
 #!bin/sh
+
+echo "replace default param values.......... in create "
+
 echo "provide aws profile"
 read profile
 export AWS_DEFAULT_PROFILE=$profile
@@ -15,8 +18,8 @@ then
     aws cloudformation create-stack \
     --stack-name $stackName \
     --region $region \
-    --parameters ParameterKey=vpcCidr,ParameterValue=10.0.0.0/16 \
-    ParameterKey=subnetCidr,ParameterValue="10.0.0.0/18\,10.0.64.0/18\,10.0.128.0/18" \
+    --parameters ParameterKey=vpcCidr,ParameterValue=0.0.0.0/0 \
+    ParameterKey=subnetCidr,ParameterValue="0.0.0.0/0\,0.0.0.0/0\,0.0.0.0/0" \
     ParameterKey=vpcName,ParameterValue=testName \
     --template-body file://networking.json
     echo "Created Stack ..!!"

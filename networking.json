@@ -31,7 +31,8 @@
             "Properties": {
                 "VpcId": { "Ref": "VPC"},
                 "CidrBlock": { "Fn::Select":[ 0, {"Ref": "subnetCidr"} ] },
-                "AvailabilityZone": { "Fn::Select": [ 0, {"Fn::GetAZs": {"Ref": "AWS::Region"} } ] }
+                "AvailabilityZone": { "Fn::Select": [ 0, {"Fn::GetAZs": {"Ref": "AWS::Region"} } ] },
+                "MapPublicIpOnLaunch": true
             }
         },
     
@@ -40,7 +41,8 @@
              "Properties": {
                 "VpcId": { "Ref": "VPC"},
                 "CidrBlock": { "Fn::Select":[ 1, {"Ref": "subnetCidr"} ] },
-                "AvailabilityZone": { "Fn::Select": [ 1, {"Fn::GetAZs": {"Ref": "AWS::Region"} } ] }
+                "AvailabilityZone": { "Fn::Select": [ 1, {"Fn::GetAZs": {"Ref": "AWS::Region"} } ] },
+                "MapPublicIpOnLaunch": true
                 }
             },
     
@@ -49,7 +51,8 @@
             "Properties": {
                 "VpcId": { "Ref": "VPC"},
                 "CidrBlock": { "Fn::Select":[ 2, {"Ref": "subnetCidr"} ] },
-                "AvailabilityZone": { "Fn::Select": [ 2, {"Fn::GetAZs": {"Ref": "AWS::Region"} } ] }
+                "AvailabilityZone": { "Fn::Select": [ 2, {"Fn::GetAZs": {"Ref": "AWS::Region"} } ] },
+                "MapPublicIpOnLaunch": true
             }
         },
     
