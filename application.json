@@ -45,7 +45,7 @@
         },
         "DBInstanceId": {
             "Type": "String",
-            "Default": "webAppDbInstance"
+            "Default": "webAppDbInstanceTest"
         },
         "DbUsername": {
             "Type": "String",
@@ -183,7 +183,7 @@
         "S3IAMPolicy": {
             "Type": "AWS::IAM::Policy",
             "Properties": {
-                "PolicyName": "WebAppS3",
+                "PolicyName": "WebAppS3Test",
                 "PolicyDocument": {
                     "Version": "2012-10-17",
                     "Statement": [
@@ -192,10 +192,7 @@
                             "Action": [
                                 "s3:*"
                             ],
-                            "Resource": [
-                                "arn:aws:s3:::${Bucket_Name}",
-                                "arn:aws:s3:::${Bucket_Name}/*"
-                            ]
+                            "Resource": "*"
                         }
                     ]
                 },
@@ -223,7 +220,8 @@
                     ]
                 },
                 "Path": "/",
-                "RoleName": "EC2-CSYE6225"
+                "RoleName": "EC2-CSYE6225Test"
+                
             }            
         },
 
@@ -385,37 +383,39 @@
                 "SubnetId": {"Ref": "SubnetA"},
                 "UserData": {
                     "Fn::Base64": {
-                      "Fn::Join": [
-                        "\n",
-                        [
-                          "#!/bin/bash -xe ",
-                          "cd /usr/lib/systemd/system",
-                          "sudo touch tomcat.service",
-                          "echo '[Unit]' > tomcat.service",
-                          "echo 'Description=Apache Tomcat Web Application Container' >> tomcat.service",
-                          "echo 'After=syslog.target network.target' >> tomcat.service",
-                          "echo '[Service]' >> tomcat.service",
-                          "echo 'Type=forking' >> tomcat.service",
-                          "echo 'Environment=JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64/jre' >> tomcat.service",
-                          "echo 'Environment=CATALINA_PID=/opt/tomcat8/temp/tomcat.pid' >> tomcat.service",
-                          "echo 'Environment=CATALINA_HOME=/opt/tomcat8' >> tomcat.service",
-                          "echo 'Environment=CATALINA_BASE=/opt/tomcat8' >> tomcat.service",
-                          "echo 'Environment=\"CATALINA_OPTS=-Xms512M -Xmx1024M -server -XX:+UseParallelGC\"' >> tomcat.service",
-                          "echo 'Environment=\"JAVA_OPTS=-Djava.awt.headless=true -Djava.security.egd=file:/dev/./urandom\"' >> tomcat.service",
-                          "echo 'ExecStart=/opt/tomcat8/bin/startup.sh' >> tomcat.service",
-                          "echo 'ExecStop=/bin/kill -15 $MAINPID' >> tomcat.service",
-                          "echo 'User=tomcat' >> tomcat.service",
-                          "echo 'Group=tomcat' >> tomcat.service",
-                          "echo 'UMask=0007' >> tomcat.service",
-                          "echo 'RestartSec=10' >> tomcat.service",
-                          "echo 'Restart=always' >> tomcat.service",
-                          "echo '[Install]' >> tomcat.service",
-                          "echo 'WantedBy=multi-user.target' >> tomcat.service",
-                          "systemctl daemon-reload",
-                          "systemctl enable tomcat.service",
-                          "systemctl start tomcat.service"
+                        
+                        "Fn::Join": [
+                            "",
+                            [
+                                "#!/bin/bash -xe\n",
+                                "sudo apt-get update -y\n",
+                                "sudo apt-get install maven -y\n",
+                                "sudo apt-get install unzip -y\n",
+                                "sudo apt-get install mysql-server -y\n",
+                                "sudo touch /home/ubuntu/prop.txt\n",
+                                "sudo chmod 777 /home/ubuntu/.bashrc\n",
+                                "sudo chmod 777 /home/ubuntu/prop.txt\n",
+                                "echo in prop.txt > /home/ubuntu/prop.txt\n",
+                                "sudo sh -c \"echo export DB_CONNECTION=",
+                                { "Fn::GetAtt": 
+                                    [
+                                        "MQSQLInstance", 
+                                        "Endpoint.Address"
+                                    ]
+                                }, 
+                                ">> /home/ubuntu/.bashrc\"\n",
+                                "echo export username=",
+                                { "Ref": "DbUsername" },
+                                ">> /home/ubuntu/.bashrc\n",
+                                "echo export password=",
+                                { "Ref": "DbPass" },
+                                ">> /home/ubuntu/.bashrc\n",
+                                "sudo sh -c \"echo export BUCKET_NAME=",
+                                { "Ref": "S3Bucket" },
+                                ">> /home/ubuntu/.bashrc\"\n",
+                                "source /home/ubuntu/.bashrc\n"
+                            ]
                         ]
-                      ]
                     }
                 }          
             }       
@@ -463,6 +463,31 @@
         "VPCId": {
             "Description": "Get Vpc Id",
             "Value": { "Ref": "VPC"}
-        }
+        },
+
+        "EC2Id": {
+            "Description": "Get ec2 Instance Id",
+            "Value": { "Ref" : "EC2Instance" }
+        },
+
+        "PublicDNS": {
+            "Description": "Public DNSName of the created EC2 instance",
+            "Value": {
+              "Fn::GetAtt": [
+                "EC2Instance",
+                "PublicDnsName"
+              ]
+            }
+          },
+
+        "PublicIP": {
+            "Description": "Public IP address of the created EC2 instance",
+            "Value": {
+              "Fn::GetAtt": [
+                "EC2Instance",
+                "PublicIp"
+              ]
+            }
+          }
     }
 }
