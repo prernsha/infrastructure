@@ -35,24 +35,31 @@ We will create a stack as specified in the infrastructure template file _`networ
 1. Execute commands one by one on terminal following below steps
    - Execute below command to [create-stack](https://docs.aws.amazon.com/cli/latest/reference/cloudformation/create-stack.html)
    ```
-   aws cloudformation create-stack \
-   --stack-name testStack \
-   --region us-east-1 \
-   --parameters ParameterKey=vpcCidr,ParameterValue=10.0.0.0/16 \
-      ParameterKey=subnetCidr,ParameterValue="10.0.0.0/18\,10.0.64.0/18\,10.0.128.0/18" \
-      ParameterKey=vpcName,ParameterValue=testName \
-      --template-body file://networking.json 
+   aws cloudformation create-stack  \                                                          
+    --stack-name $stackName \
+    --region $region \
+    --parameters ParameterKey=vpcCidr,ParameterValue=0.0.0.0/0 \
+    ParameterKey=subnetCidr,ParameterValue="0.0.0.0/0\,0.0.0.0/0\,0.0.0.0/0" \
+    ParameterKey=vpcName,ParameterValue=[your-VPCName]] \
+    ParameterKey=EC2VolSize,ParameterValue=20 \
+    ParameterKey=RDSPublicAccessibility,ParameterValue=false \
+    ParameterKey=DbStorage,ParameterValue=50 \
+    ParameterKey=EC2AMI,ParameterValue=[your-ami] \
+    ParameterKey=awsKeyname,ParameterValue=[your-key]] \
+    ParameterKey=DbPass,ParameterValue=[your-dbPass] \
+    ParameterValue=DbUsername,ParameterValue=[your-DbUsername]] \
+    --template-body file://application.json --capabilities CAPABILITY_NAMED_IAM 
    ```
    - Execute below command to describe the stack
    ```
-   aws cloudformation describe-stack --stack-name testStack
+   aws cloudformation describe-stack --stack-name YOUR-STACK-NAME
    ```
    - Execute below command to delete the stack
    ```
-   aws cloudformation delete-stack --stack-name testStack
+   aws cloudformation delete-stack --stack-name YOUR-STACK-NAME
    ```
 
-2. Execute **`createStack.sh`** providing the _profile, operation type, stack name, and aws region._
+2. Execute **`stackOp.sh`** providing the _profile, operation type, stack name, and aws region._
 
    ```
     sh stackOp.sh  
@@ -65,5 +72,3 @@ Error could not find login credentials. This is because we have no deafault prof
  ```
     export AWS_DEFAULT_PROFILE=profilename 
  ```
-
-
