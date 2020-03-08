@@ -78,7 +78,11 @@
         },
         "AppName":{
             "Type": "String",
-            "Default": "webapp"
+            "Default": "csye6225-webapp"
+        },
+        "DeploymentGrpName":{
+            "Type": "String",
+            "Default": "csye6225-webapp-deployment"
         }
     },
 
@@ -396,6 +400,43 @@
             }            
         },
 
+        "CodeDeployApplication":{
+            "Type" : "AWS::CodeDeploy::Application",
+            "Properties" : {
+                "ApplicationName" : { "Ref": "AppName" },
+                "ComputePlatform" : "Server"
+              }
+        },
+
+        "CodeDeployDeploymentGroup" : {
+            "Type" : "AWS::CodeDeploy::DeploymentGroup",
+            "DependsOn":"CodeDeployApplication",
+            "Properties" : {
+              "ApplicationName" : {"Ref" : "CodeDeployApplication"},
+              "AutoRollbackConfiguration": {
+                "Enabled" : true,
+                "Events" : ["DEPLOYMENT_FAILURE"]
+              },
+              "Ec2TagFilters" : [{
+                "Key" : "Name",
+                "Value" : { "Ref" : "AppName" },
+                "Type" : "KEY_AND_VALUE"
+              }],
+              "ServiceRoleArn" : { 
+                "Fn::GetAtt" : [ 
+                  "CodeDeployServiceRole", 
+                  "Arn" 
+                ] 
+              },
+              "DeploymentGroupName": { "Ref": "DeploymentGrpName"},
+              "DeploymentStyle":{
+                "DeploymentOption": "WITHOUT_TRAFFIC_CONTROL",
+                "DeploymentType": "IN_PLACE"
+            },
+            "DeploymentConfigName": "CodeDeployDefault.AllAtOnce" 
+            }
+            
+        },
 
         "EC2S3Role": {
             "Type": "AWS::IAM::Role",
@@ -589,6 +630,29 @@
                             [
                                 "#!/bin/bash -xe\n",
                                 "sudo apt-get update -y\n",
+                                "sudo touch /opt/tomcat8/bin/setenv.sh\n",
+                                "sudo chgrp tomcat /opt/tomcat8/bin/setenv.sh\n",
+                                "sudo chmod g+rwx /opt/tomcat8/bin/setenv.sh\n",
+                                "sudo sh -c \"echo export DB_CONNECTION=",
+                                { "Fn::GetAtt": 
+                                    [
+                                        "MQSQLInstance", 
+                                        "Endpoint.Address"
+                                    ]
+                                }, 
+                                ">> /opt/tomcat8/bin/setenv.sh\"\n",
+                                "echo export DB_USERNAME=",
+                                { "Ref": "DbUsername" },
+                                ">> /opt/tomcat8/bin/setenv.sh\n",
+                                "echo export DB_PASSWORD=",
+                                { "Ref": "DbPass" },
+                                ">> /opt/tomcat8/bin/setenv.sh\n",
+                                "sudo sh -c \"echo export BUCKET_NAME=",
+                                { "Ref": "S3Bucket" },
+                                ">> /opt/tomcat8/bin/setenv.sh\"\n",
+                                "sudo sh -c \"echo export AWS_REGION=",
+                                { "Ref": "AWS::Region" },
+                                ">> /opt/tomcat8/bin/setenv.sh\"\n",
                                 "sudo chmod 777 /home/ubuntu/.bashrc\n",
                                 "sudo sh -c \"echo export DB_CONNECTION=",
                                 { "Fn::GetAtt": 
@@ -614,7 +678,8 @@
                             ]
                         ]
                     }
-                }          
+                },
+                "Tags": [ { "Key": "Name", "Value": { "Ref": "AppName"} } ]          
             }       
         }
     },
