@@ -631,8 +631,9 @@
                                 "#!/bin/bash -xe\n",
                                 "sudo apt-get update -y\n",
                                 "sudo touch /opt/tomcat8/bin/setenv.sh\n",
-                                "sudo chgrp tomcat /opt/tomcat8/bin/setenv.sh\n",
-                                "sudo chmod g+rwx /opt/tomcat8/bin/setenv.sh\n",
+                                "sudo chgrp tomcat /opt/tomcat8/bin/setenv.sh \n",
+                                "sudo chmod 777 /opt/tomcat8/bin/setenv.sh \n",
+                                "echo '#!bin/sh' >> /opt/tomcat8/bin/setenv.sh \n",
                                 "sudo sh -c \"echo export DB_CONNECTION=",
                                 { "Fn::GetAtt": 
                                     [
@@ -653,6 +654,7 @@
                                 "sudo sh -c \"echo export AWS_REGION=",
                                 { "Ref": "AWS::Region" },
                                 ">> /opt/tomcat8/bin/setenv.sh\"\n",
+                                "sudo systemctl daemon-reload\n",
                                 "sudo chmod 777 /home/ubuntu/.bashrc\n",
                                 "sudo sh -c \"echo export DB_CONNECTION=",
                                 { "Fn::GetAtt": 
