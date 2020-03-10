@@ -71,6 +71,18 @@
         "TransitionDays":{
             "Type": "String",
             "Default": "30"
+        },
+        "circleCIUser": {
+            "Type": "String",
+            "Default": "circleci"
+        },
+        "AppName":{
+            "Type": "String",
+            "Default": "csye6225-webapp"
+        },
+        "DeploymentGrpName":{
+            "Type": "String",
+            "Default": "csye6225-webapp-deployment"
         }
     },
 
@@ -206,6 +218,224 @@
                     }
                 ]
             }
+        },
+
+        "CodeDeployEC2Policy": {
+            "Type": "AWS::IAM::Policy",
+            "Properties": {
+                "PolicyName": "CodeDeploy-EC2-S3",
+                "PolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Action": [
+                                "s3:Get*",
+                                "s3:List*"
+                            ],
+                            "Resource": [
+                                "arn:aws:s3:::codedeploy.prernasharma.me",
+                                "arn:aws:s3:::codedeploy.prernasharma.me/*"
+                            ]
+                        }
+                    ]
+                },
+                "Roles": [
+                    {
+                        "Ref": "EC2S3Role"
+                    }
+                ]
+            }
+        },
+
+        "CircleCIUploadPolicy": {
+            "Type": "AWS::IAM::Policy",
+            "Properties": {
+                "PolicyName": "CircleCI-Upload-To-S3",
+                "PolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Action": [
+                                "s3:PutObject",
+                                "s3:Get*",
+                                "s3:List*"
+                            ],
+                            "Resource": [
+                                "arn:aws:s3:::codedeploy.prernasharma.me",
+                                "arn:aws:s3:::codedeploy.prernasharma.me/*"
+                            ]
+                        }
+                    ]
+                },
+                "Users": [
+                    {
+                        "Ref": "circleCIUser"
+                    }
+                ]
+            }
+        },
+
+        "CircleCICodeDeployPolicy": {
+            "Type": "AWS::IAM::Policy",
+            "Properties": {
+                "PolicyName": "CircleCI-Code-Deploy",
+                "PolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Action": [
+                              "codedeploy:RegisterApplicationRevision",
+                              "codedeploy:GetApplicationRevision"
+                            ],
+                            "Resource": [
+                                { "Fn::Join":["",["arn:aws:codedeploy:",{"Ref": "AWS::Region"},":",{ "Ref": "AWS::AccountId" },":application:",{ "Ref": "AppName"}]]}
+                            ]
+                          },
+                          {
+                            "Effect": "Allow",
+                            "Action": [
+                              "codedeploy:CreateDeployment",
+                              "codedeploy:GetDeployment"
+                            ],
+                            "Resource": [
+                              "*"
+                            ]
+                          },
+                          {
+                            "Effect": "Allow",
+                            "Action": [
+                              "codedeploy:GetDeploymentConfig"
+                            ],
+                            "Resource": [
+                                { "Fn::Join":["",["arn:aws:codedeploy:",{"Ref": "AWS::Region"},":",{ "Ref": "AWS::AccountId" },":deploymentconfig:CodeDeployDefault.OneAtATime"]]},
+                                { "Fn::Join":["",["arn:aws:codedeploy:",{"Ref": "AWS::Region"},":",{ "Ref": "AWS::AccountId" },":deploymentconfig:CodeDeployDefault.HalfAtATime"]]},
+                                { "Fn::Join":["",["arn:aws:codedeploy:",{"Ref": "AWS::Region"},":",{ "Ref": "AWS::AccountId" },":deploymentconfig:CodeDeployDefault.AllAtOnce"]]}
+                            ]
+                          }
+                    ]
+                },
+                "Users": [
+                    {
+                        "Ref": "circleCIUser"
+                    }
+                ]
+            }
+        },
+
+        "CodeDeployServiceRole": {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+                "AssumeRolePolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Principal": {
+                                "Service": [ "codedeploy.amazonaws.com" ]
+                            },
+                            "Action": [ "sts:AssumeRole"]
+                        }
+                    ]
+                },
+                "Path": "/",
+                "Policies": [
+                    {
+                        "PolicyName": "root",
+                        "PolicyDocument": {
+                            "Version": "2012-10-17",
+                            "Statement": [
+                                {
+                                    "Effect": "Allow",
+                                    "Action": [ 
+                                        "autoscaling:CompleteLifecycleAction",
+                                        "autoscaling:DeleteLifecycleHook",
+                                        "autoscaling:DescribeAutoScalingGroups",
+                                        "autoscaling:DescribeLifecycleHooks",
+                                        "autoscaling:PutLifecycleHook",
+                                        "autoscaling:RecordLifecycleActionHeartbeat",
+                                        "autoscaling:CreateAutoScalingGroup",
+                                        "autoscaling:UpdateAutoScalingGroup",
+                                        "autoscaling:EnableMetricsCollection",
+                                        "autoscaling:DescribeAutoScalingGroups",
+                                        "autoscaling:DescribePolicies",
+                                        "autoscaling:DescribeScheduledActions",
+                                        "autoscaling:DescribeNotificationConfigurations",
+                                        "autoscaling:DescribeLifecycleHooks",
+                                        "autoscaling:SuspendProcesses",
+                                        "autoscaling:ResumeProcesses",
+                                        "autoscaling:AttachLoadBalancers",
+                                        "autoscaling:PutScalingPolicy",
+                                        "autoscaling:PutScheduledUpdateGroupAction",
+                                        "autoscaling:PutNotificationConfiguration",
+                                        "autoscaling:PutLifecycleHook",
+                                        "autoscaling:DescribeScalingActivities",
+                                        "autoscaling:DeleteAutoScalingGroup",
+                                        "ec2:DescribeInstances",
+                                        "ec2:DescribeInstanceStatus",
+                                        "ec2:TerminateInstances",
+                                        "tag:GetResources",
+                                        "sns:Publish",
+                                        "cloudwatch:DescribeAlarms",
+                                        "cloudwatch:PutMetricAlarm",
+                                        "elasticloadbalancing:DescribeLoadBalancers",
+                                        "elasticloadbalancing:DescribeInstanceHealth",
+                                        "elasticloadbalancing:RegisterInstancesWithLoadBalancer",
+                                        "elasticloadbalancing:DeregisterInstancesFromLoadBalancer",
+                                        "elasticloadbalancing:DescribeTargetGroups",
+                                        "elasticloadbalancing:DescribeTargetHealth",
+                                        "elasticloadbalancing:RegisterTargets",
+                                        "elasticloadbalancing:DeregisterTargets"
+                                    ],
+                                    "Resource": "*"
+                                }
+                            ]
+                        }
+                    }
+                ],
+                "RoleName": "CodeDeployServiceRole"
+                
+            }            
+        },
+
+        "CodeDeployApplication":{
+            "Type" : "AWS::CodeDeploy::Application",
+            "Properties" : {
+                "ApplicationName" : { "Ref": "AppName" },
+                "ComputePlatform" : "Server"
+              }
+        },
+
+        "CodeDeployDeploymentGroup" : {
+            "Type" : "AWS::CodeDeploy::DeploymentGroup",
+            "DependsOn":"CodeDeployApplication",
+            "Properties" : {
+              "ApplicationName" : {"Ref" : "CodeDeployApplication"},
+              "AutoRollbackConfiguration": {
+                "Enabled" : true,
+                "Events" : ["DEPLOYMENT_FAILURE"]
+              },
+              "Ec2TagFilters" : [{
+                "Key" : "Name",
+                "Value" : { "Ref" : "AppName" },
+                "Type" : "KEY_AND_VALUE"
+              }],
+              "ServiceRoleArn" : { 
+                "Fn::GetAtt" : [ 
+                  "CodeDeployServiceRole", 
+                  "Arn" 
+                ] 
+              },
+              "DeploymentGroupName": { "Ref": "DeploymentGrpName"},
+              "DeploymentStyle":{
+                "DeploymentOption": "WITHOUT_TRAFFIC_CONTROL",
+                "DeploymentType": "IN_PLACE"
+            },
+            "DeploymentConfigName": "CodeDeployDefault.AllAtOnce" 
+            }
+            
         },
 
         "EC2S3Role": {
@@ -400,6 +630,31 @@
                             [
                                 "#!/bin/bash -xe\n",
                                 "sudo apt-get update -y\n",
+                                "sudo touch /opt/tomcat8/bin/setenv.sh\n",
+                                "sudo chgrp tomcat /opt/tomcat8/bin/setenv.sh \n",
+                                "sudo chmod 777 /opt/tomcat8/bin/setenv.sh \n",
+                                "echo '#!bin/sh' >> /opt/tomcat8/bin/setenv.sh \n",
+                                "sudo sh -c \"echo export DB_CONNECTION=",
+                                { "Fn::GetAtt": 
+                                    [
+                                        "MQSQLInstance", 
+                                        "Endpoint.Address"
+                                    ]
+                                }, 
+                                ">> /opt/tomcat8/bin/setenv.sh\"\n",
+                                "echo export DB_USERNAME=",
+                                { "Ref": "DbUsername" },
+                                ">> /opt/tomcat8/bin/setenv.sh\n",
+                                "echo export DB_PASSWORD=",
+                                { "Ref": "DbPass" },
+                                ">> /opt/tomcat8/bin/setenv.sh\n",
+                                "sudo sh -c \"echo export BUCKET_NAME=",
+                                { "Ref": "S3Bucket" },
+                                ">> /opt/tomcat8/bin/setenv.sh\"\n",
+                                "sudo sh -c \"echo export AWS_REGION=",
+                                { "Ref": "AWS::Region" },
+                                ">> /opt/tomcat8/bin/setenv.sh\"\n",
+                                "sudo systemctl daemon-reload\n",
                                 "sudo chmod 777 /home/ubuntu/.bashrc\n",
                                 "sudo sh -c \"echo export DB_CONNECTION=",
                                 { "Fn::GetAtt": 
@@ -425,7 +680,8 @@
                             ]
                         ]
                     }
-                }          
+                },
+                "Tags": [ { "Key": "Name", "Value": { "Ref": "AppName"} } ]          
             }       
         }
     },
