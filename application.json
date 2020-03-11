@@ -26,6 +26,9 @@
             "Default": "false",
             "AllowedValues": [ "true", "false" ]
         },
+        "CodeDeployBucketName":{
+            "Type": "String"
+        },
         "DbStorage": {
             "Type": "String"
         },
@@ -234,8 +237,8 @@
                                 "s3:List*"
                             ],
                             "Resource": [
-                                "arn:aws:s3:::codedeploy.prernasharma.me",
-                                "arn:aws:s3:::codedeploy.prernasharma.me/*"
+                                { "Fn::Join":["",["arn:aws:s3:::",{"Ref": "CodeDeployBucketName"}]] },
+                                { "Fn::Join":["",["arn:aws:s3:::",{"Ref": "CodeDeployBucketName"},"/*"]] }
                             ]
                         }
                     ]
@@ -263,8 +266,8 @@
                                 "s3:List*"
                             ],
                             "Resource": [
-                                "arn:aws:s3:::codedeploy.prernasharma.me",
-                                "arn:aws:s3:::codedeploy.prernasharma.me/*"
+                                { "Fn::Join":["",["arn:aws:s3:::",{"Ref": "CodeDeployBucketName"}]] },
+                                { "Fn::Join":["",["arn:aws:s3:::",{"Ref": "CodeDeployBucketName"},"/*"]] }
                             ]
                         }
                     ]
@@ -414,7 +417,7 @@
             "Properties" : {
               "ApplicationName" : {"Ref" : "CodeDeployApplication"},
               "AutoRollbackConfiguration": {
-                "Enabled" : true,
+                "Enabled" : "true",
                 "Events" : ["DEPLOYMENT_FAILURE"]
               },
               "Ec2TagFilters" : [{
@@ -632,7 +635,7 @@
                                 "sudo apt-get update -y\n",
                                 "sudo touch /opt/tomcat8/bin/setenv.sh\n",
                                 "sudo chgrp tomcat /opt/tomcat8/bin/setenv.sh \n",
-                                "sudo chmod 777 /opt/tomcat8/bin/setenv.sh \n",
+                                "sudo chmod 755 /opt/tomcat8/bin/setenv.sh \n",
                                 "echo '#!bin/sh' >> /opt/tomcat8/bin/setenv.sh \n",
                                 "sudo sh -c \"echo export DB_CONNECTION=",
                                 { "Fn::GetAtt": 
@@ -654,8 +657,7 @@
                                 "sudo sh -c \"echo export AWS_REGION=",
                                 { "Ref": "AWS::Region" },
                                 ">> /opt/tomcat8/bin/setenv.sh\"\n",
-                                "sudo systemctl daemon-reload\n",
-                                "sudo chmod 777 /home/ubuntu/.bashrc\n",
+                                "sudo chmod 755 /home/ubuntu/.bashrc\n",
                                 "sudo sh -c \"echo export DB_CONNECTION=",
                                 { "Fn::GetAtt": 
                                     [
