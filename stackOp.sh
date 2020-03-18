@@ -28,6 +28,7 @@ then
     ParameterKey=awsKeyname,ParameterValue=[your-key]] \
     ParameterKey=DbPass,ParameterValue=[your-dbPass] \
     ParameterValue=DbUsername,ParameterValue=[your-DbUsername]] \
+    ParameterKey=CodeDeployBucketName,ParameterValue=[your-CodeDeploy-bucketName] \
     --template-body file://application.json --capabilities CAPABILITY_NAMED_IAM
 
     echo "Created Stack ..!!"
