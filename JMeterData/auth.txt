@@ -1,0 +1,2 @@
+# JMeter generated Authorization file
+http://dev.prernasharma.me/v1/bill/	a.b@example.com	P@smar02			BASIC
