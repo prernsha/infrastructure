@@ -95,6 +95,10 @@
             "Type": "String",
             "Default": "WebServerAutoScaleGroup"
         },
+        "TargetGrpName":{
+            "Type": "String",
+            "Default": "CSYE6225ALBTargetGrp"
+        },
         "HostedZoneID":{
             "Type": "String",
             "Default": "Z38WPP1KCJ1ZYP"          
@@ -470,6 +474,18 @@
             "DependsOn":"CodeDeployApplication",
             "Properties" : {
               "ApplicationName" : {"Ref" : "CodeDeployApplication"},
+              "AutoScalingGroups": [ {"Ref": "AutoScalingGroup"}],
+              "LoadBalancerInfo": {
+                "TargetGroupInfoList" : [ {
+                    "Name": {
+                        "Fn::GetAtt": [
+                            "ALBTargetGroup",
+                            "TargetGroupName"
+                        ]
+                        
+                    }
+                }]
+              },
               "AutoRollbackConfiguration": {
                 "Enabled" : "true",
                 "Events" : ["DEPLOYMENT_FAILURE"]
@@ -783,12 +799,12 @@
     "CPUAlarmHigh": {
         "Type": "AWS::CloudWatch::Alarm",
         "Properties": {
-          "AlarmDescription": "Scale-up if CPU > 5% for 0.5 minutes",
+          "AlarmDescription": "Scale-up if CPU > 5% for 7 minutes",
           "MetricName": "CPUUtilization",
           "Namespace": "AWS/EC2",
           "Statistic": "Average",
-          "Period": "60",
-          "EvaluationPeriods": "1",
+          "Period": "240",
+          "EvaluationPeriods": "2",
           "Threshold": "05",
           "AlarmActions": [
             {
@@ -810,12 +826,12 @@
     "CPUAlarmLow": {
         "Type": "AWS::CloudWatch::Alarm",
         "Properties": {
-          "AlarmDescription": "Scale-down if CPU < 3% for 0.5 minutes",
+          "AlarmDescription": "Scale-down if CPU < 3% for 7 minutes",
           "MetricName": "CPUUtilization",
           "Namespace": "AWS/EC2",
           "Statistic": "Average",
-          "Period": "60",
-          "EvaluationPeriods": "1",
+          "Period": "240",
+          "EvaluationPeriods": "2",
           "Threshold": "03",
           "AlarmActions": [
             {
@@ -871,7 +887,7 @@
         "Type" : "AWS::ElasticLoadBalancingV2::TargetGroup",
         "DependsOn": "ApplicationLoadBalancer",
         "Properties" : {
-            "Name": "CSYETargetGrp",
+            "Name": {"Ref" : "TargetGrpName"},
             "HealthCheckIntervalSeconds" : 30,
             "HealthCheckTimeoutSeconds" : 5,
             "HealthyThresholdCount" : 3,
