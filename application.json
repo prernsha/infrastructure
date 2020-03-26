@@ -21,6 +21,12 @@
         "EC2AMI": {
             "Type": "String"
         },
+        "ASGMinSize":{
+            "Type": "String"
+        },
+        "ASGMaxSize":{
+            "Type": "String"
+        },
         "RDSPublicAccessibility": {
             "Type": "String",
             "Default": "false",
@@ -100,12 +106,10 @@
             "Default": "CSYE6225ALBTargetGrp"
         },
         "HostedZoneID":{
-            "Type": "String",
-            "Default": "Z38WPP1KCJ1ZYP"          
+            "Type": "String"        
         },
         "DNSName":{
-            "Type": "String",
-            "Default": "dev.prernasharma.me."
+            "Type": "String"
         }
     },
 
@@ -532,6 +536,30 @@
             }            
         },
 
+        "SGLoadBalancer": {
+            "Type": "AWS::EC2::SecurityGroup",
+            "Properties": {
+                "GroupDescription": "Security group for Load balancers",
+                "GroupName": "loadbalancer",
+                "SecurityGroupIngress": [
+                    {
+                        "Description": "To allow port 80 access",
+                        "IpProtocol": "tcp",
+                        "FromPort": 80,
+                        "ToPort": 80,
+                        "CidrIp": { "Ref": "SGCidrIp"}
+                    }                   
+                ],
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "To allow http traffic for Load balancer port 80"
+                    }
+                ],
+                "VpcId" : { "Ref": "VPC" }
+            }
+        },
+
         "SGAppServer": {
             "Type": "AWS::EC2::SecurityGroup",
             "Properties": {
@@ -539,45 +567,34 @@
                 "GroupName": "application",
                 "SecurityGroupIngress": [
                     {
-                        "Description": "To allow ssh access",
-                        "IpProtocol": "tcp",
-                        "FromPort": 22,
-                        "ToPort": 22,
-                        "CidrIp": { "Ref": "SGCidrIp"}
-                    },
-                    {
                         "Description": "To allow port 80 access",
                         "IpProtocol": "tcp",
                         "FromPort": 80,
                         "ToPort": 80,
-                        "CidrIp": { "Ref": "SGCidrIp"}
+                        "SourceSecurityGroupId": {
+                            "Fn::GetAtt": [
+                                "SGLoadBalancer",
+                                "GroupId"
+                            ]
+                        }
                     },
                     {
-                        "Description": "To allow port 443 access",
-                        "IpProtocol": "tcp",
-                        "FromPort": 443,
-                        "ToPort": 443,
-                        "CidrIp": { "Ref": "SGCidrIp"}
-                    },
-                    {
-                        "Description": "To allow tomcat port access using maven",
+                        "Description": "To allow port 80 access",
                         "IpProtocol": "tcp",
                         "FromPort": 8080,
                         "ToPort": 8080,
-                        "CidrIp": { "Ref": "SGCidrIp"}
-                    },
-                    {
-                        "Description": "To allow tomcat port access for jar",
-                        "IpProtocol": "tcp",
-                        "FromPort": 8181,
-                        "ToPort": 8181,
-                        "CidrIp": { "Ref": "SGCidrIp"}
+                        "SourceSecurityGroupId": {
+                            "Fn::GetAtt": [
+                                "SGLoadBalancer",
+                                "GroupId"
+                            ]
+                        }
                     }
                 ],
                 "Tags": [
                     {
                         "Key": "Name",
-                        "Value": "To allow traffic on ports 22, 80, 443, 8080, and 8181"
+                        "Value": "To allow incoming traffic from load balancers on ports 80"
                     }
                 ],
                 "VpcId" : { "Ref": "VPC" }
@@ -761,8 +778,8 @@
             "DesiredCapacity" : "2",
             "LaunchConfigurationName":{ "Ref":"AutoScalingLaunchConfig" },
             "TargetGroupARNs":[{ "Ref" : "ALBTargetGroup" }],
-            "MinSize":"2",
-            "MaxSize":"5",
+            "MinSize": { "Ref": "ASGMinSize" },
+            "MaxSize": { "Ref": "ASGMaxSize" },
             "Tags":[{
                 "Key":"Name",
                 "Value":{ "Ref": "AppName" },
@@ -866,7 +883,7 @@
                 }
             ],
             "Type": "application",
-            "SecurityGroups":[ { "Ref": "SGAppServer"} ]
+            "SecurityGroups":[ { "Ref": "SGLoadBalancer"} ]
         }
     },
 
