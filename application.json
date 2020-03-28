@@ -506,7 +506,7 @@
               },
               "DeploymentGroupName": { "Ref": "DeploymentGrpName"},
               "DeploymentStyle":{
-                "DeploymentOption": "WITHOUT_TRAFFIC_CONTROL",
+                "DeploymentOption": "WITH_TRAFFIC_CONTROL",
                 "DeploymentType": "IN_PLACE"
             },
             "DeploymentConfigName": "CodeDeployDefault.AllAtOnce" 
@@ -717,52 +717,33 @@
                             "sudo apt-get update -y\n",
                             "sudo touch /opt/tomcat8/bin/setenv.sh\n",
                             "sudo chgrp tomcat /opt/tomcat8/bin/setenv.sh \n",
-                            "sudo chmod 755 /opt/tomcat8/bin/setenv.sh \n",
-                            "echo '#!bin/sh' >> /opt/tomcat8/bin/setenv.sh \n",
-                            "sudo sh -c \"echo export DB_CONNECTION=",
+                            "sudo chmod 777 /opt/tomcat8/bin/setenv.sh\n",
+                            "echo '#!bin/sh' >> /opt/tomcat8/bin/setenv.sh\n",
+                            "echo export DB_CONNECTION=",
                             { "Fn::GetAtt": 
                                 [
                                     "MQSQLInstance", 
                                     "Endpoint.Address"
                                 ]
                             }, 
-                            ">> /opt/tomcat8/bin/setenv.sh\"\n",
+                            ">> /opt/tomcat8/bin/setenv.sh\n",
                             "echo export DB_USERNAME=",
                             { "Ref": "DbUsername" },
                             ">> /opt/tomcat8/bin/setenv.sh\n",
                             "echo export DB_PASSWORD=",
                             { "Ref": "DbPass" },
                             ">> /opt/tomcat8/bin/setenv.sh\n",
-                            "sudo sh -c \"echo export BUCKET_NAME=",
+                            "echo export BUCKET_NAME=",
                             { "Ref": "S3Bucket" },
-                            ">> /opt/tomcat8/bin/setenv.sh\"\n",
-                            "sudo sh -c \"echo export AWS_REGION=",
+                            ">> /opt/tomcat8/bin/setenv.sh\n",
+                            "echo export AWS_REGION=",
                             { "Ref": "AWS::Region" },
-                            ">> /opt/tomcat8/bin/setenv.sh\"\n",
-                            "sudo chmod 755 /home/ubuntu/.bashrc\n",
-                            "sudo sh -c \"echo export DB_CONNECTION=",
-                            { "Fn::GetAtt": 
-                                [
-                                    "MQSQLInstance", 
-                                    "Endpoint.Address"
-                                ]
-                            }, 
-                            ">> /home/ubuntu/.bashrc\"\n",
-                            "echo export DB_USERNAME=",
-                            { "Ref": "DbUsername" },
-                            ">> /home/ubuntu/.bashrc\n",
-                            "echo export DB_PASSWORD=",
-                            { "Ref": "DbPass" },
-                            ">> /home/ubuntu/.bashrc\n",
-                            "sudo sh -c \"echo export BUCKET_NAME=",
-                            { "Ref": "S3Bucket" },
-                            ">> /home/ubuntu/.bashrc\"\n",
-                            "sudo sh -c \"echo export AWS_REGION=",
-                            { "Ref": "AWS::Region" },
-                            ">> /home/ubuntu/.bashrc\"\n",
-                            "source /home/ubuntu/.bashrc\n"                            
-                        ]
+                            ">> /opt/tomcat8/bin/setenv.sh\n",
+                            "sudo touch /home/ubuntu/list.txt\n",
+                            "sudo systemctl enable tomcat.service\n",
+                            "sudo systemctl start tomcat.service"
                     ]
+                ]
                 }
             }
           }
@@ -975,50 +956,31 @@
                                 "sudo apt-get update -y\n",
                                 "sudo touch /opt/tomcat8/bin/setenv.sh\n",
                                 "sudo chgrp tomcat /opt/tomcat8/bin/setenv.sh \n",
-                                "sudo chmod 755 /opt/tomcat8/bin/setenv.sh \n",
-                                "echo '#!bin/sh' >> /opt/tomcat8/bin/setenv.sh \n",
-                                "sudo sh -c \"echo export DB_CONNECTION=",
+                                "sudo chmod 777 /opt/tomcat8/bin/setenv.sh\n",
+                                "echo '#!bin/sh' >> /opt/tomcat8/bin/setenv.sh\n",
+                                "echo export DB_CONNECTION=",
                                 { "Fn::GetAtt": 
                                     [
                                         "MQSQLInstance", 
                                         "Endpoint.Address"
                                     ]
                                 }, 
-                                ">> /opt/tomcat8/bin/setenv.sh\"\n",
+                                ">> /opt/tomcat8/bin/setenv.sh\n",
                                 "echo export DB_USERNAME=",
                                 { "Ref": "DbUsername" },
                                 ">> /opt/tomcat8/bin/setenv.sh\n",
                                 "echo export DB_PASSWORD=",
                                 { "Ref": "DbPass" },
                                 ">> /opt/tomcat8/bin/setenv.sh\n",
-                                "sudo sh -c \"echo export BUCKET_NAME=",
+                                "echo export BUCKET_NAME=",
                                 { "Ref": "S3Bucket" },
-                                ">> /opt/tomcat8/bin/setenv.sh\"\n",
-                                "sudo sh -c \"echo export AWS_REGION=",
+                                ">> /opt/tomcat8/bin/setenv.sh\n",
+                                "echo export AWS_REGION=",
                                 { "Ref": "AWS::Region" },
-                                ">> /opt/tomcat8/bin/setenv.sh\"\n",
-                                "sudo chmod 755 /home/ubuntu/.bashrc\n",
-                                "sudo sh -c \"echo export DB_CONNECTION=",
-                                { "Fn::GetAtt": 
-                                    [
-                                        "MQSQLInstance", 
-                                        "Endpoint.Address"
-                                    ]
-                                }, 
-                                ">> /home/ubuntu/.bashrc\"\n",
-                                "echo export DB_USERNAME=",
-                                { "Ref": "DbUsername" },
-                                ">> /home/ubuntu/.bashrc\n",
-                                "echo export DB_PASSWORD=",
-                                { "Ref": "DbPass" },
-                                ">> /home/ubuntu/.bashrc\n",
-                                "sudo sh -c \"echo export BUCKET_NAME=",
-                                { "Ref": "S3Bucket" },
-                                ">> /home/ubuntu/.bashrc\"\n",
-                                "sudo sh -c \"echo export AWS_REGION=",
-                                { "Ref": "AWS::Region" },
-                                ">> /home/ubuntu/.bashrc\"\n",
-                                "source /home/ubuntu/.bashrc\n"                            
+                                ">> /opt/tomcat8/bin/setenv.sh\n",
+                                "sudo touch /home/ubuntu/list.txt\n",
+                                "sudo systemctl enable tomcat.service\n",
+                                "sudo systemctl start tomcat.service"
                             ]
                         ]
                     }
