@@ -45,8 +45,7 @@
             "Type": "String"
         },
         "EmailDomainName":{
-            "Type": "String",
-            "Default": "sharma.prer+prod@husky.neu.edu"
+            "Type": "String"
         },
         "DbUsername": {
             "Type": "String",
