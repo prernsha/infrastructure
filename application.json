@@ -44,6 +44,10 @@
         "DbPass": {
             "Type": "String"
         },
+        "EmailDomainName":{
+            "Type": "String",
+            "Default": "sharma.prer+prod@husky.neu.edu"
+        },
         "DbUsername": {
             "Type": "String",
             "Default": "root"
@@ -114,12 +118,21 @@
             "Type": "String",
             "Default": "CSYE6225ALBTargetGrp"
         },
+        "LambdaFunctionS3Key":{
+            "Type": "String",
+            "Default": "lambda-function.zip"
+        },
         "HostedZoneID":{
             "Type": "String"        
         },
         "DNSName":{
             "Type": "String"
+        },
+        "SNSTopicName": {
+            "Type": "String",
+            "Default": "csyeLambda_topic"
         }
+        
     },
 
     "Resources":{
@@ -220,18 +233,11 @@
         "SQSQueue": {
             "Type" : "AWS::SQS::Queue",
             "Properties" : {
+                "ContentBasedDeduplication": "true",
                 "FifoQueue" : "true",
                 "QueueName" : { "Ref": "SQSQueueName" }
               }
         },
-
-        "SNSTopic":{
-            "Type" : "AWS::SNS::Topic",
-            "Properties" : {
-                "DisplayName" : "SNSTopicForLambda",
-                "TopicName" : "webappSNSTopic"
-              }
-          },
 
         "LambdaExecutionRole": {
             "Type": "AWS::IAM::Role",
@@ -255,12 +261,82 @@
                 "ManagedPolicyArns": [
                     "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess",
                     "arn:aws:iam::aws:policy/AmazonSESFullAccess",
-                    "arn:aws:iam::aws:policy/AmazonSNSFullAccess",
-                    "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+                    "arn:aws:iam::aws:policy/AmazonSNSFullAccess"
                 ],
-                "RoleName": "LambdaExecutionRole"
+                "RoleName": "LambdaExecRole"
             }
           },
+          "LambdaExecutionRole2": {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+              "AssumeRolePolicyDocument": {
+                "Version": "2012-10-17",
+                "Statement": [{ "Effect": "Allow", "Principal": {"Service": ["lambda.amazonaws.com"]}, "Action": ["sts:AssumeRole"] }]
+              },
+              "Path": "/",
+              "Policies": [{
+                "PolicyName": "root1",
+                "PolicyDocument": {
+                  "Version": "2012-10-17",
+                  "Statement": [
+                      { "Effect": "Allow", "Action": ["logs:*"], "Resource": "arn:aws:logs:*:*:*" }
+                    ]
+                }
+              }]
+            }
+        },
+        
+        "LambdaFunction":{
+            "Type" : "AWS::Lambda::Function",
+            "DependsOn": "LambdaExecutionRole2",
+            "Properties" : {
+                "Code" : {
+                            "S3Bucket" : { "Ref" : "CodeDeployBucketName" },
+                            "S3Key" : { "Ref" : "LambdaFunctionS3Key" }
+                },
+                "Environment" : {
+                    "Variables" : { "databasename" : { "Ref": "DynamoDBTblNm" },
+                                    "domainName" : { "Ref": "EmailDomainName" } 
+                                }
+                },
+                "Handler" : "Email::handleRequest",
+                "MemorySize" : 256,
+                "Role": {
+                    "Fn::GetAtt": [
+                        "LambdaExecutionRole2",
+                        "Arn"
+                    ]
+                },
+                "Runtime" : "java8",
+                "Timeout" : "900"
+            }
+        },
+
+        "SNSTopic":{
+            "Type" : "AWS::SNS::Topic",
+            "DependsOn": "LambdaFunction",
+            "Properties" : {
+                "Subscription": [
+                    {
+                      "Endpoint": { "Fn::GetAtt": [ "LambdaFunction", "Arn" ] },
+                      "Protocol": "lambda"
+                    }
+                ],
+                "TopicName" : { "Ref": "SNSTopicName" }
+              }
+        },
+        
+        "LambdaInvokePermission": {
+            "Type": "AWS::Lambda::Permission",
+            "Properties": {
+              "Action": "lambda:InvokeFunction",
+              "Principal": "sns.amazonaws.com",
+              "SourceArn": { "Ref": "SNSTopic" },
+              "FunctionName": {
+                "Fn::GetAtt": [ "LambdaFunction", "Arn" ]
+              }
+            }
+        },
 
         "S3IAMPolicyInstanceProfile": {
             "Type": "AWS::IAM::InstanceProfile",
@@ -823,6 +899,9 @@
                                 ">> /opt/tomcat8/bin/setenv.sh\n",
                                 "echo export AWS_REGION=",
                                 { "Ref": "AWS::Region" },
+                                ">> /opt/tomcat8/bin/setenv.sh\n",
+                                "echo export QUEUE_NAME=",
+                                { "Ref": "SQSQueueName" },
                                 ">> /opt/tomcat8/bin/setenv.sh\n",
                                 "sudo touch /home/ubuntu/list.txt\n",
                                 "sudo systemctl enable tomcat.service\n",
