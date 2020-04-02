@@ -44,6 +44,10 @@
         "DbPass": {
             "Type": "String"
         },
+        "EmailDomainName":{
+            "Type": "String",
+            "Default": "sharma.prer+prod@husky.neu.edu"
+        },
         "DbUsername": {
             "Type": "String",
             "Default": "root"
@@ -52,6 +56,15 @@
             "Type": "String",
             "Default": "0.0.0.0/0"
         },
+        "DynamoDBTblNm": {
+            "Type": "String",
+            "Default": "billTable"
+        },
+        "SQSQueueName": {
+            "Type": "String",
+            "Default": "webapp.fifo"
+        },
+
         "DBName": {
             "Type": "String",
             "Default": "userdb"
@@ -105,12 +118,21 @@
             "Type": "String",
             "Default": "CSYE6225ALBTargetGrp"
         },
+        "LambdaFunctionS3Key":{
+            "Type": "String",
+            "Default": "lambda-function.zip"
+        },
         "HostedZoneID":{
             "Type": "String"        
         },
         "DNSName":{
             "Type": "String"
+        },
+        "SNSTopicName": {
+            "Type": "String",
+            "Default": "csyeLambda_topic"
         }
+        
     },
 
     "Resources":{
@@ -208,6 +230,114 @@
             }
         },
 
+        "SQSQueue": {
+            "Type" : "AWS::SQS::Queue",
+            "Properties" : {
+                "ContentBasedDeduplication": "true",
+                "FifoQueue" : "true",
+                "QueueName" : { "Ref": "SQSQueueName" }
+              }
+        },
+
+        "LambdaExecutionRole": {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+                "AssumeRolePolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        { 
+                            "Effect": "Allow", 
+                            "Principal": {
+                                "Service": [
+                                    "lambda.amazonaws.com"
+                                ]
+                            }, 
+                            "Action": [
+                                "sts:AssumeRole"
+                            ] 
+                        }
+                    ]
+                },
+                "ManagedPolicyArns": [
+                    "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess",
+                    "arn:aws:iam::aws:policy/AmazonSESFullAccess",
+                    "arn:aws:iam::aws:policy/AmazonSNSFullAccess"
+                ],
+                "RoleName": "LambdaExecRole"
+            }
+          },
+          "LambdaExecutionRole2": {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+              "AssumeRolePolicyDocument": {
+                "Version": "2012-10-17",
+                "Statement": [{ "Effect": "Allow", "Principal": {"Service": ["lambda.amazonaws.com"]}, "Action": ["sts:AssumeRole"] }]
+              },
+              "Path": "/",
+              "Policies": [{
+                "PolicyName": "root1",
+                "PolicyDocument": {
+                  "Version": "2012-10-17",
+                  "Statement": [
+                      { "Effect": "Allow", "Action": ["logs:*"], "Resource": "arn:aws:logs:*:*:*" }
+                    ]
+                }
+              }]
+            }
+        },
+        
+        "LambdaFunction":{
+            "Type" : "AWS::Lambda::Function",
+            "DependsOn": "LambdaExecutionRole2",
+            "Properties" : {
+                "Code" : {
+                            "S3Bucket" : { "Ref" : "CodeDeployBucketName" },
+                            "S3Key" : { "Ref" : "LambdaFunctionS3Key" }
+                },
+                "Environment" : {
+                    "Variables" : { "databasename" : { "Ref": "DynamoDBTblNm" },
+                                    "domainName" : { "Ref": "EmailDomainName" } 
+                                }
+                },
+                "Handler" : "Email::handleRequest",
+                "MemorySize" : 256,
+                "Role": {
+                    "Fn::GetAtt": [
+                        "LambdaExecutionRole2",
+                        "Arn"
+                    ]
+                },
+                "Runtime" : "java8",
+                "Timeout" : "900"
+            }
+        },
+
+        "SNSTopic":{
+            "Type" : "AWS::SNS::Topic",
+            "DependsOn": "LambdaFunction",
+            "Properties" : {
+                "Subscription": [
+                    {
+                      "Endpoint": { "Fn::GetAtt": [ "LambdaFunction", "Arn" ] },
+                      "Protocol": "lambda"
+                    }
+                ],
+                "TopicName" : { "Ref": "SNSTopicName" }
+              }
+        },
+        
+        "LambdaInvokePermission": {
+            "Type": "AWS::Lambda::Permission",
+            "Properties": {
+              "Action": "lambda:InvokeFunction",
+              "Principal": "sns.amazonaws.com",
+              "SourceArn": { "Ref": "SNSTopic" },
+              "FunctionName": {
+                "Fn::GetAtt": [ "LambdaFunction", "Arn" ]
+              }
+            }
+        },
+
         "S3IAMPolicyInstanceProfile": {
             "Type": "AWS::IAM::InstanceProfile",
             "Properties": {
@@ -254,7 +384,7 @@
                 "PolicyDocument": {
                     "Version": "2012-10-17",
                     "Statement": [
-                        {
+                        {   
                             "Effect": "Allow",
                             "Action": [
                                 "s3:Get*",
@@ -506,7 +636,7 @@
               },
               "DeploymentGroupName": { "Ref": "DeploymentGrpName"},
               "DeploymentStyle":{
-                "DeploymentOption": "WITH_TRAFFIC_CONTROL",
+                "DeploymentOption": "WITHOUT_TRAFFIC_CONTROL",
                 "DeploymentType": "IN_PLACE"
             },
             "DeploymentConfigName": "CodeDeployDefault.AllAtOnce" 
@@ -529,6 +659,14 @@
                         }
                     ]
                 },
+                "ManagedPolicyArns": [
+                    "arn:aws:iam::aws:policy/AmazonS3FullAccess",
+                    "arn:aws:iam::aws:policy/AmazonSNSFullAccess",
+                    "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess" ,
+                    "arn:aws:iam::aws:policy/AmazonRDSFullAccess",
+                    "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+                    "arn:aws:iam::aws:policy/AmazonSQSFullAccess"
+                ],
                 "Path": "/",
                 "RoleName": "EC2-CSYE6225"
                 
@@ -669,6 +807,29 @@
             }
         },
 
+        "DynamoDBTable":{
+            "Type" : "AWS::DynamoDB::Table",
+            "Properties" : {
+                "AttributeDefinitions" : [ {
+                    "AttributeName" : "dbId",
+                    "AttributeType" : "S"
+                } ],
+                "KeySchema" : [ {
+                    "AttributeName" : "dbId",
+                    "KeyType" : "HASH"
+                } ],
+                "ProvisionedThroughput" : {
+                    "ReadCapacityUnits" : "3",
+                    "WriteCapacityUnits" : "3"
+                },
+                "TableName" : { "Ref": "DynamoDBTblNm" },
+                "TimeToLiveSpecification" : {
+                    "AttributeName" : "TTL",
+                    "Enabled" : "true"       
+                }
+              }
+        },
+
         "MQSQLInstance": {
             "Type": "AWS::RDS::DBInstance",
             "Properties": {
@@ -688,245 +849,10 @@
             }
         },
 
-    "AutoScalingLaunchConfig":{
-        "Type" : "AWS::AutoScaling::LaunchConfiguration",
-        "Properties" : {
-            "AssociatePublicIpAddress" : "true",
-            "BlockDeviceMappings": [
-                {
-                    "DeviceName" : "/dev/sda1",
-                    "Ebs" : {
-                        "VolumeSize": { "Ref": "EC2VolSize" },
-                        "VolumeType": { "Ref": "EC2VolType" },
-                        "DeleteOnTermination": "true"
-                    }
-                }
-            ],
-            "IamInstanceProfile" : { "Ref": "S3IAMPolicyInstanceProfile" },
-            "ImageId" : { "Ref": "EC2AMI" },
-            "InstanceType" : { "Ref":  "EC2InstanceType" },
-            "KeyName" : { "Ref": "awsKeyname" },
-            "LaunchConfigurationName": { "Ref": "LaunchConfigName" },
-            "SecurityGroups" : [{ "Ref": "SGAppServer"} ],
-            "UserData" : {
-                "Fn::Base64": {      
-                    "Fn::Join": [
-                        "",
-                        [
-                            "#!/bin/bash -xe\n",
-                            "sudo apt-get update -y\n",
-                            "sudo touch /opt/tomcat8/bin/setenv.sh\n",
-                            "sudo chgrp tomcat /opt/tomcat8/bin/setenv.sh \n",
-                            "sudo chmod 777 /opt/tomcat8/bin/setenv.sh\n",
-                            "echo '#!bin/sh' >> /opt/tomcat8/bin/setenv.sh\n",
-                            "echo export DB_CONNECTION=",
-                            { "Fn::GetAtt": 
-                                [
-                                    "MQSQLInstance", 
-                                    "Endpoint.Address"
-                                ]
-                            }, 
-                            ">> /opt/tomcat8/bin/setenv.sh\n",
-                            "echo export DB_USERNAME=",
-                            { "Ref": "DbUsername" },
-                            ">> /opt/tomcat8/bin/setenv.sh\n",
-                            "echo export DB_PASSWORD=",
-                            { "Ref": "DbPass" },
-                            ">> /opt/tomcat8/bin/setenv.sh\n",
-                            "echo export BUCKET_NAME=",
-                            { "Ref": "S3Bucket" },
-                            ">> /opt/tomcat8/bin/setenv.sh\n",
-                            "echo export AWS_REGION=",
-                            { "Ref": "AWS::Region" },
-                            ">> /opt/tomcat8/bin/setenv.sh\n",
-                            "sudo touch /home/ubuntu/list.txt\n",
-                            "sudo systemctl enable tomcat.service\n",
-                            "sudo systemctl start tomcat.service"
-                    ]
-                ]
-                }
-            }
-          }
-    },
-
-    "AutoScalingGroup":{
-        "Type":"AWS::AutoScaling::AutoScalingGroup",
-        "DependsOn": "AttachInternetGateway",
-        "Properties":{
-            "AutoScalingGroupName" : {"Ref": "AutoScaleGrpName" },
-            "Cooldown" : "60",
-            "DesiredCapacity" : "2",
-            "LaunchConfigurationName":{ "Ref":"AutoScalingLaunchConfig" },
-            "TargetGroupARNs":[{ "Ref" : "ALBTargetGroup" }],
-            "MinSize": { "Ref": "ASGMinSize" },
-            "MaxSize": { "Ref": "ASGMaxSize" },
-            "Tags":[{
-                "Key":"Name",
-                "Value":{ "Ref": "AppName" },
-                "PropagateAtLaunch":"true"
-            }],
-            "VPCZoneIdentifier":[ {"Ref": "SubnetA" } ]
-        }
-    },
-
-    "WebServerScaleUpPolicy": {
-        "Type": "AWS::AutoScaling::ScalingPolicy",
-        "Properties": {
-          "AdjustmentType": "ChangeInCapacity",
-          "AutoScalingGroupName": {
-            "Ref": "AutoScalingGroup"
-          },
-          "Cooldown": "60",
-          "ScalingAdjustment": "1"
-        }
-      },
-
-    "WebServerScaleDownPolicy": {
-        "Type": "AWS::AutoScaling::ScalingPolicy",
-        "Properties": {
-          "AdjustmentType": "ChangeInCapacity",
-          "AutoScalingGroupName": {
-            "Ref": "AutoScalingGroup"
-          },
-          "Cooldown": "60",
-          "ScalingAdjustment": "-1"
-        }
-      },
-
-    "CPUAlarmHigh": {
-        "Type": "AWS::CloudWatch::Alarm",
-        "Properties": {
-          "AlarmDescription": "Scale-up if CPU > 5% for 7 minutes",
-          "MetricName": "CPUUtilization",
-          "Namespace": "AWS/EC2",
-          "Statistic": "Average",
-          "Period": "240",
-          "EvaluationPeriods": "2",
-          "Threshold": "05",
-          "AlarmActions": [
-            {
-              "Ref": "WebServerScaleUpPolicy"
-            }
-          ],
-          "Dimensions": [
-            {
-              "Name": "AutoScalingGroupName",
-              "Value": {
-                "Ref": "AutoScalingGroup"
-              }
-            }
-          ],
-          "ComparisonOperator": "GreaterThanThreshold"
-        }
-    },
-
-    "CPUAlarmLow": {
-        "Type": "AWS::CloudWatch::Alarm",
-        "Properties": {
-          "AlarmDescription": "Scale-down if CPU < 3% for 7 minutes",
-          "MetricName": "CPUUtilization",
-          "Namespace": "AWS/EC2",
-          "Statistic": "Average",
-          "Period": "240",
-          "EvaluationPeriods": "2",
-          "Threshold": "03",
-          "AlarmActions": [
-            {
-              "Ref": "WebServerScaleDownPolicy"
-            }
-          ],
-          "Dimensions": [
-            {
-              "Name": "AutoScalingGroupName",
-              "Value": {
-                "Ref": "AutoScalingGroup"
-              }
-            }
-          ],
-          "ComparisonOperator": "LessThanThreshold"
-        }
-    },
-
-    "ApplicationLoadBalancer" : {
-        "Type" : "AWS::ElasticLoadBalancingV2::LoadBalancer",
-        "Properties" : {
-            "IpAddressType": "ipv4",
-            "Subnets" : [
-                {"Ref": "SubnetA"},
-                {"Ref": "SubnetB"},
-                {"Ref": "SubnetC"}             
-            ],
-            "Tags": [ 
-                { 
-                  "Key": "Name",
-                  "Value": "csye6225"
-                }
-            ],
-            "Type": "application",
-            "SecurityGroups":[ { "Ref": "SGLoadBalancer"} ]
-        }
-    },
-
-    "ALBListener" : {
-        "Type" : "AWS::ElasticLoadBalancingV2::Listener",
-        "Properties" : {
-          "DefaultActions" : [{
-            "Type" : "forward",
-            "TargetGroupArn" : { "Ref" : "ALBTargetGroup" }
-          }],
-          "LoadBalancerArn" : { "Ref" : "ApplicationLoadBalancer" },
-          "Port" : "80",
-          "Protocol" : "HTTP"
-        }
-    },
-  
-    "ALBTargetGroup" : {
-        "Type" : "AWS::ElasticLoadBalancingV2::TargetGroup",
-        "DependsOn": "ApplicationLoadBalancer",
-        "Properties" : {
-            "Name": {"Ref" : "TargetGrpName"},
-            "HealthCheckIntervalSeconds" : 30,
-            "HealthCheckTimeoutSeconds" : 5,
-            "HealthyThresholdCount" : 3,
-            "Port" : 8080,
-            "Protocol" : "HTTP",
-            "UnhealthyThresholdCount" : 5,
-            "VpcId" : {"Ref" : "VPC"}
-        }
-    },
-
-    "DNSRecordSetGrp": {
-        "Type" : "AWS::Route53::RecordSetGroup",
-        "Properties" : {
-            "Comment" : "Creating a DNS Record Set Group",
-            "HostedZoneId" : { "Ref": "HostedZoneID" },
-            "RecordSets" : [
-                {
-                    "Name": { "Ref": "DNSName" },
-                    "Type": "A",
-                    "AliasTarget": {
-                        "DNSName" : {
-                            "Fn::GetAtt": [
-                                "ApplicationLoadBalancer",
-                                "DNSName"
-                            ]
-                        },
-                        "HostedZoneId" :{
-                            "Fn::GetAtt": [
-                                "ApplicationLoadBalancer",
-                                "CanonicalHostedZoneID"
-                            ]
-                        }
-                    }
-                }
-            ]
-        }
-    },
-
-    "EC2Instance": {
-            "Type": "AWS::EC2::Instance",
-            "DependsOn": "MQSQLInstance",
-            "Properties": {
+        "AutoScalingLaunchConfig":{
+            "Type" : "AWS::AutoScaling::LaunchConfiguration",
+            "Properties" : {
+                "AssociatePublicIpAddress" : "true",
                 "BlockDeviceMappings": [
                     {
                         "DeviceName" : "/dev/sda1",
@@ -937,18 +863,14 @@
                         }
                     }
                 ],
-                "DisableApiTermination": "false",
-                "IamInstanceProfile": {
-                    "Ref": "S3IAMPolicyInstanceProfile"
-                },
-                "ImageId": { "Ref": "EC2AMI" },
-                "InstanceType": { "Ref": "EC2InstanceType" },
-                "KeyName": { "Ref": "awsKeyname" },
-                "SecurityGroupIds": [ { "Ref": "SGAppServer"} ],
-                "SubnetId": {"Ref": "SubnetA"},
-                "UserData": {
-                    "Fn::Base64": {
-                        
+                "IamInstanceProfile" : { "Ref": "S3IAMPolicyInstanceProfile" },
+                "ImageId" : { "Ref": "EC2AMI" },
+                "InstanceType" : { "Ref":  "EC2InstanceType" },
+                "KeyName" : { "Ref": "awsKeyname" },
+                "LaunchConfigurationName": { "Ref": "LaunchConfigName" },
+                "SecurityGroups" : [{ "Ref": "SGAppServer"} ],
+                "UserData" : {
+                    "Fn::Base64": {      
                         "Fn::Join": [
                             "",
                             [
@@ -978,16 +900,257 @@
                                 "echo export AWS_REGION=",
                                 { "Ref": "AWS::Region" },
                                 ">> /opt/tomcat8/bin/setenv.sh\n",
+                                "echo export QUEUE_NAME=",
+                                { "Ref": "SQSQueueName" },
+                                ">> /opt/tomcat8/bin/setenv.sh\n",
                                 "sudo touch /home/ubuntu/list.txt\n",
                                 "sudo systemctl enable tomcat.service\n",
                                 "sudo systemctl start tomcat.service"
-                            ]
+                        ]
+                    ]
+                    }
+                }
+            }
+        },
+
+        "AutoScalingGroup":{
+            "Type":"AWS::AutoScaling::AutoScalingGroup",
+            "DependsOn": "AttachInternetGateway",
+            "Properties":{
+                "AutoScalingGroupName" : {"Ref": "AutoScaleGrpName" },
+                "Cooldown" : "60",
+                "DesiredCapacity" : "2",
+                "LaunchConfigurationName":{ "Ref":"AutoScalingLaunchConfig" },
+                "TargetGroupARNs":[{ "Ref" : "ALBTargetGroup" }],
+                "MinSize": { "Ref": "ASGMinSize" },
+                "MaxSize": { "Ref": "ASGMaxSize" },
+                "Tags":[{
+                    "Key":"Name",
+                    "Value":{ "Ref": "AppName" },
+                    "PropagateAtLaunch":"true"
+                }],
+                "VPCZoneIdentifier":[ {"Ref": "SubnetA" } ]
+            }
+        },
+
+        "WebServerScaleUpPolicy": {
+            "Type": "AWS::AutoScaling::ScalingPolicy",
+            "Properties": {
+            "AdjustmentType": "ChangeInCapacity",
+            "AutoScalingGroupName": {
+                "Ref": "AutoScalingGroup"
+            },
+            "Cooldown": "60",
+            "ScalingAdjustment": "1"
+            }
+        },
+
+        "WebServerScaleDownPolicy": {
+            "Type": "AWS::AutoScaling::ScalingPolicy",
+            "Properties": {
+            "AdjustmentType": "ChangeInCapacity",
+            "AutoScalingGroupName": {
+                "Ref": "AutoScalingGroup"
+            },
+            "Cooldown": "60",
+            "ScalingAdjustment": "-1"
+            }
+        },
+
+        "CPUAlarmHigh": {
+            "Type": "AWS::CloudWatch::Alarm",
+            "Properties": {
+            "AlarmDescription": "Scale-up if CPU > 5% for 7 minutes",
+            "MetricName": "CPUUtilization",
+            "Namespace": "AWS/EC2",
+            "Statistic": "Average",
+            "Period": "240",
+            "EvaluationPeriods": "2",
+            "Threshold": "05",
+            "AlarmActions": [
+                {
+                "Ref": "WebServerScaleUpPolicy"
+                }
+            ],
+            "Dimensions": [
+                {
+                "Name": "AutoScalingGroupName",
+                "Value": {
+                    "Ref": "AutoScalingGroup"
+                }
+                }
+            ],
+            "ComparisonOperator": "GreaterThanThreshold"
+            }
+        },
+
+        "CPUAlarmLow": {
+            "Type": "AWS::CloudWatch::Alarm",
+            "Properties": {
+            "AlarmDescription": "Scale-down if CPU < 3% for 7 minutes",
+            "MetricName": "CPUUtilization",
+            "Namespace": "AWS/EC2",
+            "Statistic": "Average",
+            "Period": "240",
+            "EvaluationPeriods": "2",
+            "Threshold": "03",
+            "AlarmActions": [
+                {
+                "Ref": "WebServerScaleDownPolicy"
+                }
+            ],
+            "Dimensions": [
+                {
+                "Name": "AutoScalingGroupName",
+                "Value": {
+                    "Ref": "AutoScalingGroup"
+                }
+                }
+            ],
+            "ComparisonOperator": "LessThanThreshold"
+            }
+        },
+
+        "ApplicationLoadBalancer" : {
+            "Type" : "AWS::ElasticLoadBalancingV2::LoadBalancer",
+            "Properties" : {
+                "IpAddressType": "ipv4",
+                "Subnets" : [
+                    {"Ref": "SubnetA"},
+                    {"Ref": "SubnetB"},
+                    {"Ref": "SubnetC"}             
+                ],
+                "Tags": [ 
+                    { 
+                    "Key": "Name",
+                    "Value": "csye6225"
+                    }
+                ],
+                "Type": "application",
+                "SecurityGroups":[ { "Ref": "SGLoadBalancer"} ]
+            }
+        },
+
+        "ALBListener" : {
+            "Type" : "AWS::ElasticLoadBalancingV2::Listener",
+            "Properties" : {
+            "DefaultActions" : [{
+                "Type" : "forward",
+                "TargetGroupArn" : { "Ref" : "ALBTargetGroup" }
+            }],
+            "LoadBalancerArn" : { "Ref" : "ApplicationLoadBalancer" },
+            "Port" : "80",
+            "Protocol" : "HTTP"
+            }
+        },
+    
+        "ALBTargetGroup" : {
+            "Type" : "AWS::ElasticLoadBalancingV2::TargetGroup",
+            "DependsOn": "ApplicationLoadBalancer",
+            "Properties" : {
+                "Name": {"Ref" : "TargetGrpName"},
+                "HealthCheckIntervalSeconds" : 30,
+                "HealthCheckTimeoutSeconds" : 5,
+                "HealthyThresholdCount" : 3,
+                "Port" : 8080,
+                "Protocol" : "HTTP",
+                "UnhealthyThresholdCount" : 5,
+                "VpcId" : {"Ref" : "VPC"}
+            }
+        },
+
+        "DNSRecordSetGrp": {
+            "Type" : "AWS::Route53::RecordSetGroup",
+            "Properties" : {
+                "Comment" : "Creating a DNS Record Set Group",
+                "HostedZoneId" : { "Ref": "HostedZoneID" },
+                "RecordSets" : [
+                    {
+                        "Name": { "Ref": "DNSName" },
+                        "Type": "A",
+                        "AliasTarget": {
+                            "DNSName" : {
+                                "Fn::GetAtt": [
+                                    "ApplicationLoadBalancer",
+                                    "DNSName"
+                                ]
+                            },
+                            "HostedZoneId" :{
+                                "Fn::GetAtt": [
+                                    "ApplicationLoadBalancer",
+                                    "CanonicalHostedZoneID"
+                                ]
+                            }
+                        }
+                    }
+                ]
+            }
+        },
+
+        "EC2Instance": {
+            "Type": "AWS::EC2::Instance",
+            "DependsOn": "MQSQLInstance",
+            "Properties": {
+                "BlockDeviceMappings": [
+                    {
+                        "DeviceName" : "/dev/sda1",
+                        "Ebs" : {
+                            "VolumeSize": { "Ref": "EC2VolSize" },
+                            "VolumeType": { "Ref": "EC2VolType" },
+                            "DeleteOnTermination": "true"
+                        }
+                    }
+                ],
+                "DisableApiTermination": "false",
+                "IamInstanceProfile": {
+                    "Ref": "S3IAMPolicyInstanceProfile"
+                },
+                "ImageId": { "Ref": "EC2AMI" },
+                "InstanceType": { "Ref": "EC2InstanceType" },
+                "KeyName": { "Ref": "awsKeyname" },
+                "SecurityGroupIds": [ { "Ref": "SGAppServer"} ],
+                "SubnetId": {"Ref": "SubnetA"},
+                "UserData": {
+                    "Fn::Base64": {
+                        "Fn::Join": [
+                            "",
+                                [
+                                    "#!/bin/bash -xe\n",
+                                    "sudo apt-get update -y\n",
+                                    "sudo touch /opt/tomcat8/bin/setenv.sh\n",
+                                    "sudo chgrp tomcat /opt/tomcat8/bin/setenv.sh \n",
+                                    "sudo chmod 777 /opt/tomcat8/bin/setenv.sh\n",
+                                    "echo '#!bin/sh' >> /opt/tomcat8/bin/setenv.sh\n",
+                                    "echo export DB_CONNECTION=",
+                                    { "Fn::GetAtt": 
+                                        [
+                                            "MQSQLInstance", 
+                                            "Endpoint.Address"
+                                        ]
+                                    }, 
+                                    ">> /opt/tomcat8/bin/setenv.sh\n",
+                                    "echo export DB_USERNAME=",
+                                    { "Ref": "DbUsername" },
+                                    ">> /opt/tomcat8/bin/setenv.sh\n",
+                                    "echo export DB_PASSWORD=",
+                                    { "Ref": "DbPass" },
+                                    ">> /opt/tomcat8/bin/setenv.sh\n",
+                                    "echo export BUCKET_NAME=",
+                                    { "Ref": "S3Bucket" },
+                                    ">> /opt/tomcat8/bin/setenv.sh\n",
+                                    "echo export AWS_REGION=",
+                                    { "Ref": "AWS::Region" },
+                                    ">> /opt/tomcat8/bin/setenv.sh\n",
+                                    "sudo touch /home/ubuntu/list.txt\n",
+                                    "sudo systemctl enable tomcat.service\n",
+                                    "sudo systemctl start tomcat.service"
+                                ]
                         ]
                     }
                 },
                 "Tags": [ { "Key": "Name", "Value": { "Ref": "AppName"} } ]          
-            }       
-        }
+            }
+        }       
     },
 
     "Outputs": {
