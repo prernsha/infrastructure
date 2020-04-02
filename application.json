@@ -119,7 +119,7 @@
         },
         "LambdaFunctionS3Key":{
             "Type": "String",
-            "Default": "lambda-function.zip"
+            "Default": "lambda-function.jar"
         },
         "HostedZoneID":{
             "Type": "String"        
@@ -130,7 +130,12 @@
         "SNSTopicName": {
             "Type": "String",
             "Default": "csyeLambda_topic"
+        },
+        "LFName": {
+            "Type": "String",
+            "Default": "webappLambdaFunction"
         }
+        
         
     },
 
@@ -259,8 +264,10 @@
                 },
                 "ManagedPolicyArns": [
                     "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess",
+                    "arn:aws:iam::aws:policy/CloudWatchLogsFullAccess",
                     "arn:aws:iam::aws:policy/AmazonSESFullAccess",
-                    "arn:aws:iam::aws:policy/AmazonSNSFullAccess"
+                    "arn:aws:iam::aws:policy/AmazonSNSFullAccess",
+                    "arn:aws:iam::aws:policy/AmazonS3FullAccess"
                 ],
                 "RoleName": "LambdaExecRole"
             }
@@ -278,16 +285,73 @@
                 "PolicyDocument": {
                   "Version": "2012-10-17",
                   "Statement": [
-                      { "Effect": "Allow", "Action": ["logs:*"], "Resource": "arn:aws:logs:*:*:*" }
+                        { 
+                            "Effect": "Allow", 
+                            "Action": ["logs:*"], 
+                            "Resource": "arn:aws:logs:*:*:*" 
+                        },
+                        {
+                            "Action": [
+                                "s3:Get*",
+                                "s3:List*"
+                            ],
+                            "Effect": "Allow",
+                            "Resource": "*"
+                        },
+                        {
+                            "Effect": "Allow",
+                            "Action": [
+                              "ses:SendEmail",
+                              "ses:SendRawEmail"
+                            ],
+                            "Resource": "*"
+                        },
+                        {
+                          "Sid": "LambdaDynamoDBAccess",
+                          "Effect": "Allow",
+                          "Action": [
+                              "dynamodb:GetItem",
+                              "dynamodb:PutItem",
+                              "dynamodb:UpdateItem"
+                          ],
+                          "Resource": "*"  
+                        },
+                        {
+                          "Sid": "LambdaSESAccess",
+                          "Effect": "Allow",
+                          "Action": [
+                              "ses:VerifyEmailAddress",
+                              "ses:SendEmail",
+                              "ses:SendRawEmail"
+                          ],
+                          "Resource": "*"   
+                        },
+                        {
+                          "Sid": "LambdaS3Access",
+                          "Effect": "Allow",
+                          "Action": [
+                              "s3:GetObject"
+                          ],
+                          "Resource": "*"
+                        },
+                        {
+                          "Sid": "LambdaSNSAccess",
+                          "Effect": "Allow",
+                          "Action": [
+                              "sns:ConfirmSubscription"
+                          ],
+                          "Resource": "*"
+                        }
                     ]
                 }
-              }]
+              }],
+                "RoleName": "LambdaExecRole2"
             }
         },
         
         "LambdaFunction":{
             "Type" : "AWS::Lambda::Function",
-            "DependsOn": "LambdaExecutionRole2",
+            "DependsOn": "LambdaExecutionRole",
             "Properties" : {
                 "Code" : {
                             "S3Bucket" : { "Ref" : "CodeDeployBucketName" },
@@ -302,12 +366,13 @@
                 "MemorySize" : 256,
                 "Role": {
                     "Fn::GetAtt": [
-                        "LambdaExecutionRole2",
+                        "LambdaExecutionRole",
                         "Arn"
                     ]
                 },
                 "Runtime" : "java8",
-                "Timeout" : "900"
+                "Timeout" : "900",
+                "FunctionName": { "Ref": "LFName" }
             }
         },
 
@@ -437,6 +502,30 @@
                 "Roles": [
                     {
                         "Ref": "EC2S3Role"
+                    }
+                ]
+            }
+        },
+
+        "CircleCILambdaUpdatePolicy": {
+            "Type": "AWS::IAM::Policy",
+            "Properties": {
+                "PolicyName": "CircleCI-Lambda-Update-Function",
+                "PolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Action": [
+                                "lambda:*"
+                            ],
+                            "Resource": "*"
+                        }
+                    ]
+                },
+                "Users": [
+                    {
+                        "Ref": "circleCIUser"
                     }
                 ]
             }
@@ -901,6 +990,9 @@
                                 ">> /opt/tomcat8/bin/setenv.sh\n",
                                 "echo export QUEUE_NAME=",
                                 { "Ref": "SQSQueueName" },
+                                ">> /opt/tomcat8/bin/setenv.sh\n",
+                                "echo export TOPIC_NAME=",
+                                { "Ref": "SNSTopicName" },
                                 ">> /opt/tomcat8/bin/setenv.sh\n",
                                 "sudo touch /home/ubuntu/list.txt\n",
                                 "sudo systemctl enable tomcat.service\n",
