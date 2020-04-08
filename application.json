@@ -134,9 +134,12 @@
         "LFName": {
             "Type": "String",
             "Default": "webappLambdaFunction"
+        },
+        "SSLCertiARN":{
+            "Type": "String",
+            "Default": "arn:aws:acm:us-east-1:538151268849:certificate/07111b46-6213-4704-a3d7-2fbc9f47e216"
         }
-        
-        
+              
     },
 
     "Resources":{
@@ -272,82 +275,6 @@
                 "RoleName": "LambdaExecRole"
             }
           },
-          "LambdaExecutionRole2": {
-            "Type": "AWS::IAM::Role",
-            "Properties": {
-              "AssumeRolePolicyDocument": {
-                "Version": "2012-10-17",
-                "Statement": [{ "Effect": "Allow", "Principal": {"Service": ["lambda.amazonaws.com"]}, "Action": ["sts:AssumeRole"] }]
-              },
-              "Path": "/",
-              "Policies": [{
-                "PolicyName": "root1",
-                "PolicyDocument": {
-                  "Version": "2012-10-17",
-                  "Statement": [
-                        { 
-                            "Effect": "Allow", 
-                            "Action": ["logs:*"], 
-                            "Resource": "arn:aws:logs:*:*:*" 
-                        },
-                        {
-                            "Action": [
-                                "s3:Get*",
-                                "s3:List*"
-                            ],
-                            "Effect": "Allow",
-                            "Resource": "*"
-                        },
-                        {
-                            "Effect": "Allow",
-                            "Action": [
-                              "ses:SendEmail",
-                              "ses:SendRawEmail"
-                            ],
-                            "Resource": "*"
-                        },
-                        {
-                          "Sid": "LambdaDynamoDBAccess",
-                          "Effect": "Allow",
-                          "Action": [
-                              "dynamodb:GetItem",
-                              "dynamodb:PutItem",
-                              "dynamodb:UpdateItem"
-                          ],
-                          "Resource": "*"  
-                        },
-                        {
-                          "Sid": "LambdaSESAccess",
-                          "Effect": "Allow",
-                          "Action": [
-                              "ses:VerifyEmailAddress",
-                              "ses:SendEmail",
-                              "ses:SendRawEmail"
-                          ],
-                          "Resource": "*"   
-                        },
-                        {
-                          "Sid": "LambdaS3Access",
-                          "Effect": "Allow",
-                          "Action": [
-                              "s3:GetObject"
-                          ],
-                          "Resource": "*"
-                        },
-                        {
-                          "Sid": "LambdaSNSAccess",
-                          "Effect": "Allow",
-                          "Action": [
-                              "sns:ConfirmSubscription"
-                          ],
-                          "Resource": "*"
-                        }
-                    ]
-                }
-              }],
-                "RoleName": "LambdaExecRole2"
-            }
-        },
         
         "LambdaFunction":{
             "Type" : "AWS::Lambda::Function",
@@ -770,10 +697,18 @@
                     {
                         "Description": "To allow port 80 access",
                         "IpProtocol": "tcp",
+
                         "FromPort": 80,
                         "ToPort": 80,
                         "CidrIp": { "Ref": "SGCidrIp"}
-                    }                   
+                    },
+                    {
+                        "Description": "To allow https access",
+                        "IpProtocol": "tcp",
+                        "FromPort": 443,
+                        "ToPort": 443,
+                        "CidrIp": { "Ref": "SGCidrIp"}
+                    }
                 ],
                 "Tags": [
                     {
@@ -918,6 +853,15 @@
               }
         },
 
+        "DBParameterGroup":{
+            "Type" : "AWS::RDS::DBParameterGroup",
+            "Properties" : {
+                "Description" : "To enable performace schema in database",
+                "Family" : "mysql5.7",
+                "Parameters" : { "performance_schema" : 1}
+              }
+          },
+
         "MQSQLInstance": {
             "Type": "AWS::RDS::DBInstance",
             "Properties": {
@@ -931,6 +875,8 @@
                 "MasterUserPassword": { "Ref": "DbPass" },
                 "DBSubnetGroupName": { "Ref": "DbSubnetGroups" },
                 "PubliclyAccessible": {"Ref": "RDSPublicAccessibility" },
+                "DBParameterGroupName" : { "Ref": "DBParameterGroup" },
+                "StorageEncrypted" : "true",
                 "VPCSecurityGroups": [
                     { "Ref": "SGDbServers" }
                 ]
@@ -1125,13 +1071,14 @@
         "ALBListener" : {
             "Type" : "AWS::ElasticLoadBalancingV2::Listener",
             "Properties" : {
-            "DefaultActions" : [{
-                "Type" : "forward",
-                "TargetGroupArn" : { "Ref" : "ALBTargetGroup" }
-            }],
-            "LoadBalancerArn" : { "Ref" : "ApplicationLoadBalancer" },
-            "Port" : "80",
-            "Protocol" : "HTTP"
+                "Certificates": [ { "CertificateArn" : {"Ref" : "SSLCertiARN"} } ],
+                "DefaultActions" : [{
+                    "Type" : "forward",
+                    "TargetGroupArn" : { "Ref" : "ALBTargetGroup" }
+                }],
+                "LoadBalancerArn" : { "Ref" : "ApplicationLoadBalancer" },
+                "Port" : "443",
+                "Protocol" : "HTTPS"
             }
         },
     
@@ -1175,71 +1122,6 @@
                         }
                     }
                 ]
-            }
-        },
-
-        "EC2Instance": {
-            "Type": "AWS::EC2::Instance",
-            "DependsOn": "MQSQLInstance",
-            "Properties": {
-                "BlockDeviceMappings": [
-                    {
-                        "DeviceName" : "/dev/sda1",
-                        "Ebs" : {
-                            "VolumeSize": { "Ref": "EC2VolSize" },
-                            "VolumeType": { "Ref": "EC2VolType" },
-                            "DeleteOnTermination": "true"
-                        }
-                    }
-                ],
-                "DisableApiTermination": "false",
-                "IamInstanceProfile": {
-                    "Ref": "S3IAMPolicyInstanceProfile"
-                },
-                "ImageId": { "Ref": "EC2AMI" },
-                "InstanceType": { "Ref": "EC2InstanceType" },
-                "KeyName": { "Ref": "awsKeyname" },
-                "SecurityGroupIds": [ { "Ref": "SGAppServer"} ],
-                "SubnetId": {"Ref": "SubnetA"},
-                "UserData": {
-                    "Fn::Base64": {
-                        "Fn::Join": [
-                            "",
-                                [
-                                    "#!/bin/bash -xe\n",
-                                    "sudo apt-get update -y\n",
-                                    "sudo touch /opt/tomcat8/bin/setenv.sh\n",
-                                    "sudo chgrp tomcat /opt/tomcat8/bin/setenv.sh \n",
-                                    "sudo chmod 777 /opt/tomcat8/bin/setenv.sh\n",
-                                    "echo '#!bin/sh' >> /opt/tomcat8/bin/setenv.sh\n",
-                                    "echo export DB_CONNECTION=",
-                                    { "Fn::GetAtt": 
-                                        [
-                                            "MQSQLInstance", 
-                                            "Endpoint.Address"
-                                        ]
-                                    }, 
-                                    ">> /opt/tomcat8/bin/setenv.sh\n",
-                                    "echo export DB_USERNAME=",
-                                    { "Ref": "DbUsername" },
-                                    ">> /opt/tomcat8/bin/setenv.sh\n",
-                                    "echo export DB_PASSWORD=",
-                                    { "Ref": "DbPass" },
-                                    ">> /opt/tomcat8/bin/setenv.sh\n",
-                                    "echo export BUCKET_NAME=",
-                                    { "Ref": "S3Bucket" },
-                                    ">> /opt/tomcat8/bin/setenv.sh\n",
-                                    "echo export AWS_REGION=",
-                                    { "Ref": "AWS::Region" },
-                                    ">> /opt/tomcat8/bin/setenv.sh\n",
-                                    "sudo touch /home/ubuntu/list.txt\n",
-                                    "sudo systemctl enable tomcat.service\n",
-                                    "sudo systemctl start tomcat.service"
-                                ]
-                        ]
-                    }
-                },
-                "Tags": [ { "Key": "Name", "Value": { "Ref": "AppName"} } ]          
             }
         }       
     },
@@ -1285,21 +1167,6 @@
         "VPCId": {
             "Description": "Get Vpc Id",
             "Value": { "Ref": "VPC"}
-        },
-
-        "EC2Id": {
-            "Description": "Get ec2 Instance Id",
-            "Value": { "Ref" : "EC2Instance" }
-        },
-
-        "PublicIP": {
-            "Description": "Public IP address of the created EC2 instance",
-            "Value": {
-              "Fn::GetAtt": [
-                "EC2Instance",
-                "PublicIp"
-              ]
-            }
-          }
+        }
     }
 }   
