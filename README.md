@@ -49,6 +49,11 @@ We will create a stack as specified in the infrastructure template file _`networ
     ParameterKey=DbPass,ParameterValue=[your-dbPass] \
     ParameterValue=DbUsername,ParameterValue=[your-DbUsername]] \
     ParameterKey=CodeDeployBucketName,ParameterValue=[your-CodeDeploy-bucketName] \
+    ParameterKey=HostedZoneID,ParameterValue=[YOUR-ZoneID] \
+    ParameterKey=DNSName,ParameterValue=[YOUR-DNSName] \
+    ParameterKey=ASGMinSize,ParameterValue=1 \
+    ParameterKey=ASGMaxSize,ParameterValue=3 \
+    ParameterKey=EmailDomainName,ParameterValue=[YOUR-EmailDomainName]\
     --template-body file://application.json --capabilities CAPABILITY_NAMED_IAM 
    ```
    - Execute below command to describe the stack
@@ -73,3 +78,39 @@ Error could not find login credentials. This is because we have no deafault prof
  ```
     export AWS_DEFAULT_PROFILE=profilename 
  ```
+#### Secure Endpoints Configuration ####
+##### Generate certificate signing request #####
+- Install openssl on MAC
+```
+   brew install openssl
+   mkdir /-dir-name/
+   cd /-dir-name/
+```
+- Generate Private key
+```
+   openssl genrsa -out ~/domain.com.ssl/domain.com.key 2048
+```
+- Create certificate signing request
+
+```
+   openssl req -new -sha256 -key ~/-dir-name/file-name.key -out ~/-dir-name/file-name.csr
+```
+- You will be prompted to answer the following questions. The value I have provided isc(. means blank):
+1. Country/region= US
+2. Common Name= prod.prernasharma.me
+3. Organization Name = .
+4. Organizational Unit= .
+5. City/locality= .
+6. State/province= .
+
+- Provide this CSR to namecheap while requesting SSL activation.
+   - Choose validation method as DNS
+   - Update AWS ROute53 with CNAME conf provided by namecheap
+
+##### Import the validated certificate by namecheap into AWS #####
+```
+   aws acm import-certificate --certificate file://Certificate.pem \
+   --certificate-chain file://CertificateChain.pem \
+   --private-key file://PrivateKey.pem
+```
+   
