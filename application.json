@@ -60,17 +60,14 @@
             "Default": "billTable"
         },
         "SQSQueueName": {
-            "Type": "String",
-            "Default": "webapp.fifo"
+            "Type": "String"
         },
-
         "DBName": {
             "Type": "String",
             "Default": "userdb"
         },
         "DBInstanceClass": {
-            "Type": "String",
-            "Default": "db.t3.micro"
+            "Type": "String"
         },
         "DbMultiAZ": {
             "Type": "String",
@@ -78,36 +75,30 @@
             "AllowedValues": [ "true", "false" ]
         },
         "DBInstanceId": {
-            "Type": "String",
-            "Default": "webAppDbInstance"
+            "Type": "String"
         },
         "EC2InstanceType": {
-            "Type": "String",
-            "Default": "t2.micro"
+            "Type": "String"
         },
         "EC2VolType": {
-            "Type": "String",
-            "Default": "gp2"
+            "Type": "String"
         },
         "TransitionDays":{
             "Type": "String",
             "Default": "30"
         },
         "circleCIUser": {
-            "Type": "String",
-            "Default": "circleci"
+            "Type": "String"
         },
         "AppName":{
-            "Type": "String",
-            "Default": "csye6225-webapp"
+            "Type": "String"
         },
         "DeploymentGrpName":{
             "Type": "String",
             "Default": "csye6225-webapp-deployment"
         },
         "LaunchConfigName":{
-            "Type": "String",
-            "Default": "asg_launch_config"
+            "Type": "String"
         },
         "AutoScaleGrpName":{
             "Type": "String",
@@ -118,8 +109,7 @@
             "Default": "CSYE6225ALBTargetGrp"
         },
         "LambdaFunctionS3Key":{
-            "Type": "String",
-            "Default": "lambda-function.jar"
+            "Type": "String"
         },
         "HostedZoneID":{
             "Type": "String"        
@@ -128,16 +118,13 @@
             "Type": "String"
         },
         "SNSTopicName": {
-            "Type": "String",
-            "Default": "csyeLambda_topic"
+            "Type": "String"
         },
         "LFName": {
-            "Type": "String",
-            "Default": "webappLambdaFunction"
+            "Type": "String"
         },
         "SSLCertiARN":{
-            "Type": "String",
-            "Default": "arn:aws:acm:us-east-1:538151268849:certificate/07111b46-6213-4704-a3d7-2fbc9f47e216"
+            "Type": "String"
         }
               
     },
